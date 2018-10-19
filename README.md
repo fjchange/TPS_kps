@@ -9,7 +9,7 @@ The basic idea is from
 
 A project may use the same idea 
 https://github.com/menorashid/animal_human_kp
-![source_img](https://https://github.com/fjchange/TPS_kps/blob/master/horse+head7.jpg)
+![source_img](https://github.com/fjchange/TPS_kps/blob/master/horse+head7.jpg)
 
 ![trans_img](https://github.com/fjchange/TPS_kps/blob/master/trans.jpg)
 
