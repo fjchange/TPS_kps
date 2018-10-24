@@ -1,10 +1,8 @@
-#import TPS
 import numpy as np
-from PIL import Image
-
+from PIL import Image,ImageFilter
 import time
-#import profile
-from finetune import generate_gt_imgs
+
+image_mean=np.array([[117.59180662198212, 106.95174844888551, 96.32777887186238]],dtype=float)
 
 def cal_z(source_kps,target_kps):
     '''
@@ -41,11 +39,11 @@ def cal_new_i_j(W,i,j,source_kps):
     src_kps = np.log(np.sum(src_kps ** 2, axis=1) + 1e-5) * np.sum(src_kps ** 2, axis=1)
     new_i = np.matmul(W[:, 0][-3:], pts_3)[0]
     new_i += np.sum(W[:, 0][:-3] * src_kps)
-    new_i = int(new_i)
+    new_i = int(new_i+0.5)
 
     new_j = np.matmul(W[:, 1][-3:], pts_3)[0]
     new_j += np.sum(W[:, 1][:-3] * src_kps)
-    new_j = int(new_j)
+    new_j = int(new_j+0.5)
     return (new_i,new_j)
 
 def interpolate(W,image,source_kps):
@@ -57,30 +55,34 @@ def interpolate(W,image,source_kps):
     '''
     #when multi points are mapped into a same point, do sample work
 
-    image_mean=np.reshape(np.mean(np.mean(image,axis=0),axis=0),[1,3])
     #image_mean=np.zeros([1,3])
-    new_image=np.matmul(np.ones([image.shape[0],image.shape[1],1],dtype=float),image_mean)
-
+    #new_image=np.matmul(np.ones([image.shape[0],image.shape[1],1],dtype=float),image_mean)
+    new_image=np.empty([image.shape[0],image.shape[1],image.shape[2]])
     map_matrix={}
+
+    # height,width=image.shape[0],image.shape[1]
+    x=np.empty(shape=[image.shape[0],image.shape[1]])
+    y=np.empty(shape=[image.shape[0],image.shape[1]])
 
     for i in range(image.shape[0]):
         for j in range(image.shape[1]):
             key=cal_new_i_j(W,i,j,source_kps)
-
+            #x[i,j],y[i,j]=cal_new_i_j(W,i,j,source_kps)
+            y[i,j],x[i,j]=key
             if key in map_matrix.keys():
                 map_matrix[key].append(image[i][j])
             else:
                 map_matrix[key]=[image[i][j]]
-
-    key_0,key_1,key_2,key_3=cal_new_i_j(W,0,0,source_kps),cal_new_i_j(W,0,image.shape[1]-1,source_kps),cal_new_i_j(W,image.shape[0]-1,0,source_kps),cal_new_i_j(W,image.shape[0]-1,image.shape[1]-1,source_kps)
-    min_x,max_x=min(key_0[0],key_1[0],key_2[0],key_3[0]),max(key_0[0],key_1[0],key_2[0],key_3[0])
-    min_y, max_y = min(key_0[1], key_1[1], key_2[1], key_3[1]), max(key_0[1], key_1[1], key_2[1], key_3[1])
     #now we have the mapping matrix, create the new image
     for key in map_matrix:
         average=np.mean(np.array(map_matrix[key]),axis=0)
-        new_image[int((key[0]-min_x)/(float)(max_x-min_x)*(image.shape[0]-1))][int((key[1]-min_y)/(float)(max_y-min_y)*(image.shape[1]-1))]=average
-
+        #new_image[int((key[0]-min_x)/(float)(max_x-min_x)*(image.shape[0]-2)+0.5)][int((key[1]-min_y)/(float)(max_y-min_y)*(image.shape[1]-2)+0.5)]=average
+        if key[0]<0 or key[0]>=224 or key[1]<0 or key[1]>=224:continue
+        new_image[key[0]][key[1]]=average
     return new_image
+    '''
+    return output
+    '''
 
 def main():
     source_kps=np.load('/home/solink/kiwi_fung/horse/npy/_04_Aug16_png/horse+head7.npy')
@@ -98,8 +100,9 @@ def main():
     tar_kps=np.array(tar_kps,dtype=float)
 
     W=cal_z(src_kps,tar_kps)
-    new_image=interpolate(W,image_np,src_kps)
+    new_image=interpolate(W,image_np,src_kps).reshape(image_np.shape)
     new_jpg=Image.fromarray(new_image.astype('uint8'),mode='RGB')
 
+
     #new_jpg.show(title='trans_image')
-    new_jpg.save('trans.jpg')
+    new_jpg.save('trans2.jpg')
